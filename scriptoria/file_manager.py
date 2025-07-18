@@ -182,7 +182,13 @@ class FileManager:
 
         # Call post-write hooks
         for hook in self.post_write_hooks:
-          hook_name_for_log = getattr(hook, 'name', str(hook))
+          hook_name_for_log = getattr(hook, '__name__', None)
+          if not hook_name_for_log:
+            hook_name_for_log = getattr(hook, '_mock_name', None)
+          if not hook_name_for_log:
+            hook_name_for_log = getattr(hook, 'name', None)
+          if not hook_name_for_log:
+            hook_name_for_log = str(hook)
           try:
             self.logger.debug(f"Calling post-write hook {hook_name_for_log} for {abs_path}")
             hook(abs_path)
@@ -255,7 +261,13 @@ class FileManager:
         )
         # Call post-write hooks
         for hook in self.post_write_hooks:
-          hook_name_for_log = getattr(hook, 'name', str(hook))
+          hook_name_for_log = getattr(hook, '__name__', None)
+          if not hook_name_for_log:
+            hook_name_for_log = getattr(hook, '_mock_name', None)
+          if not hook_name_for_log:
+            hook_name_for_log = getattr(hook, 'name', None)
+          if not hook_name_for_log:
+            hook_name_for_log = str(hook)
           try:
             self.logger.debug(f"Calling post-append hook {hook_name_for_log} for {abs_path}")
             hook(abs_path)
@@ -581,7 +593,13 @@ class FileManager:
         # For now, call hooks only if a single file was copied.
         if src_abs_path.is_file(): # Check original source type
             for hook in self.post_write_hooks:
-                hook_name_for_log = getattr(hook, 'name', str(hook))
+                hook_name_for_log = getattr(hook, '__name__', None)
+                if not hook_name_for_log:
+                    hook_name_for_log = getattr(hook, '_mock_name', None)
+                if not hook_name_for_log:
+                    hook_name_for_log = getattr(hook, 'name', None)
+                if not hook_name_for_log:
+                    hook_name_for_log = str(hook)
                 try:
                     self.logger.debug(f"Calling post-copy (file) hook {hook_name_for_log} for {dest_abs_path}")
                     hook(dest_abs_path)
