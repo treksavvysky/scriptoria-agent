@@ -8,7 +8,7 @@ from unittest.mock import Mock, call # For hook testing later
 
 # Assuming file_manager.py is in the parent directory or PYTHONPATH is set up
 # For this environment, file_manager.py is in the root.
-from file_manager import FileManager, FileManagerError
+from scriptoria.file_manager import FileManager, FileManagerError
 
 TEST_WORKSPACE_ROOT = "/workspace"
 
@@ -130,7 +130,7 @@ def test_write_no_overwrite_exists(fm: FileManager, fs):
 # *   Delete non-existent file
 def test_delete_non_existent(fm: FileManager, caplog):
     # caplog fixture captures log output
-    with caplog.at_level(logging.WARNING, logger="file_manager"): # Check against the actual logger name
+    with caplog.at_level(logging.WARNING, logger="scriptoria.file_manager"):  # logger name updated after package restructure
         fm.delete("non_existent.txt")
 
     assert "Attempted to delete non-existent path" in caplog.text
