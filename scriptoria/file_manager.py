@@ -30,7 +30,8 @@ class FileManager:
       post_write_hooks: Optional list of functions to call after a file is written.
     """
     self.workspace_root = workspace_root.resolve()
-    self.lock = threading.Lock()
+    # Use a reentrant lock so internal methods can safely call each other
+    self.lock = threading.RLock()
     self.logger = logger or logging.getLogger(__name__)
     # Note: Application should configure logging. FileManager does not call basicConfig.
     self.post_write_hooks = post_write_hooks or [] # Restoring original attribute
@@ -182,7 +183,13 @@ class FileManager:
 
         # Call post-write hooks
         for hook in self.post_write_hooks:
-          hook_name_for_log = getattr(hook, 'name', str(hook))
+          hook_name_for_log = getattr(hook, '__name__', None)
+          if not hook_name_for_log:
+            hook_name_for_log = getattr(hook, '_mock_name', None)
+          if not hook_name_for_log:
+            hook_name_for_log = getattr(hook, 'name', None)
+          if not hook_name_for_log:
+            hook_name_for_log = str(hook)
           try:
             self.logger.debug(f"Calling post-write hook {hook_name_for_log} for {abs_path}")
             hook(abs_path)
@@ -255,7 +262,13 @@ class FileManager:
         )
         # Call post-write hooks
         for hook in self.post_write_hooks:
-          hook_name_for_log = getattr(hook, 'name', str(hook))
+          hook_name_for_log = getattr(hook, '__name__', None)
+          if not hook_name_for_log:
+            hook_name_for_log = getattr(hook, '_mock_name', None)
+          if not hook_name_for_log:
+            hook_name_for_log = getattr(hook, 'name', None)
+          if not hook_name_for_log:
+            hook_name_for_log = str(hook)
           try:
             self.logger.debug(f"Calling post-append hook {hook_name_for_log} for {abs_path}")
             hook(abs_path)
@@ -461,6 +474,10 @@ class FileManager:
     src_abs_path = self._resolve_path(src)
     dest_abs_path = self._resolve_path(dest)
 
+    # If moving a file to an existing directory, place it inside that directory
+    if src_abs_path.is_file() and dest_abs_path.exists() and dest_abs_path.is_dir():
+        dest_abs_path = dest_abs_path / src_abs_path.name
+
     with self.lock:
       if not src_abs_path.exists():
         msg = f"Source path for move does not exist: {src_abs_path}"
@@ -484,9 +501,7 @@ class FileManager:
 
       # Ensure parent directory of destination exists.
       # This uses the public ensure_dir which will try to acquire the lock again.
-      # This is a potential deadlock if ensure_dir was not re-entrant.
-      # However, our lock is re-entrant (threading.Lock is by default in Python 3,
-      # but it's better to avoid nested acquire if not strictly needed).
+      # With a non-reentrant lock this would deadlock, so we use RLock.
       # For simplicity, let's ensure parent dir directly here.
       dest_parent_abs = dest_abs_path.parent
       if not dest_parent_abs.exists():
@@ -529,6 +544,10 @@ class FileManager:
     )
     src_abs_path = self._resolve_path(src)
     dest_abs_path = self._resolve_path(dest)
+
+    # If copying a file to an existing directory, place it inside that directory
+    if src_abs_path.is_file() and dest_abs_path.exists() and dest_abs_path.is_dir():
+        dest_abs_path = dest_abs_path / src_abs_path.name
 
     with self.lock:
       if not src_abs_path.exists():
@@ -581,7 +600,13 @@ class FileManager:
         # For now, call hooks only if a single file was copied.
         if src_abs_path.is_file(): # Check original source type
             for hook in self.post_write_hooks:
-                hook_name_for_log = getattr(hook, 'name', str(hook))
+                hook_name_for_log = getattr(hook, '__name__', None)
+                if not hook_name_for_log:
+                    hook_name_for_log = getattr(hook, '_mock_name', None)
+                if not hook_name_for_log:
+                    hook_name_for_log = getattr(hook, 'name', None)
+                if not hook_name_for_log:
+                    hook_name_for_log = str(hook)
                 try:
                     self.logger.debug(f"Calling post-copy (file) hook {hook_name_for_log} for {dest_abs_path}")
                     hook(dest_abs_path)
