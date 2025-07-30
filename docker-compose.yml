@@ -1,0 +1,46 @@
+# Docker Compose for Scriptoria Agent Testing
+version: '3.8'
+
+services:
+  scriptoria-test:
+    build: .
+    container_name: scriptoria-agent-test
+    volumes:
+      # Mount source code for development
+      - ./scriptoria:/app/scriptoria
+      - ./tests:/app/tests
+      # Persistent workspace for testing
+      - scriptoria-workspace:/app/workspace
+    environment:
+      - PYTHONPATH=/app
+      - SCRIPTORIA_WORKSPACE=/app/workspace
+    command: python -m pytest tests/ -v
+    
+  scriptoria-dev:
+    build: .
+    container_name: scriptoria-agent-dev
+    volumes:
+      - ./scriptoria:/app/scriptoria
+      - ./tests:/app/tests
+      - scriptoria-workspace:/app/workspace
+    environment:
+      - PYTHONPATH=/app
+      - SCRIPTORIA_WORKSPACE=/app/workspace
+    command: tail -f /dev/null  # Keep container running
+    
+  scriptoria-interactive:
+    build: .
+    container_name: scriptoria-agent-interactive
+    volumes:
+      - ./scriptoria:/app/scriptoria
+      - ./tests:/app/tests
+      - scriptoria-workspace:/app/workspace
+    environment:
+      - PYTHONPATH=/app
+      - SCRIPTORIA_WORKSPACE=/app/workspace
+    stdin_open: true
+    tty: true
+    command: python3
+
+volumes:
+  scriptoria-workspace:
