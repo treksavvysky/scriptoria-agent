@@ -102,9 +102,9 @@ def test_path_traversal_attack(fm: FileManager):
         # For fm.exists(), it should return False for invalid paths, not raise an error.
         assert fm.exists(path) is False
         with pytest.raises(FileManagerError, match="Path must be relative and not contain '..'"):
-            fm.move(path, "other_file.txt")
+            fm.move_file(path, "other_file.txt")
         with pytest.raises(FileManagerError, match="Path must be relative and not contain '..'"):
-            fm.move("safe_file.txt", path)
+            fm.move_file("safe_file.txt", path)
         with pytest.raises(FileManagerError, match="Path must be relative and not contain '..'"):
             fm.copy(path, "other_file.txt")
         with pytest.raises(FileManagerError, match="Path must be relative and not contain '..'"):
@@ -399,7 +399,7 @@ def test_move_directory_tree(fm: FileManager, fs):
     fm.ensure_dir("dir_to_move/empty_subdir")
 
     # Move the directory
-    fm.move("dir_to_move", "moved_dir")
+    fm.move_file("dir_to_move", "moved_dir")
 
     # Check source is gone
     assert not fm.exists("dir_to_move")
@@ -417,12 +417,12 @@ def test_move_directory_tree(fm: FileManager, fs):
     # Test move with overwrite=False when destination exists
     fm.write("another_dir/another_file.txt", "another content")
     with pytest.raises(FileManagerError, match="Destination path .* for move exists and overwrite is False"):
-        fm.move("moved_dir", "another_dir")
+        fm.move_file("moved_dir", "another_dir")
     assert fm.read("another_dir/another_file.txt") == "another content" # Ensure target is untouched
 
     # Test move with overwrite=True when destination (file) exists
     fm.write("file_as_dest", "i am a file")
-    fm.move("another_dir", "file_as_dest", overwrite=True)
+    fm.move_file("another_dir", "file_as_dest", overwrite=True)
     assert not fm.exists("another_dir")
     assert fm.exists("file_as_dest/another_file.txt") # file_as_dest is now a dir
     assert fm.read("file_as_dest/another_file.txt") == "another content"
@@ -433,7 +433,7 @@ def test_move_directory_tree(fm: FileManager, fs):
     fm.ensure_dir("dir_dest_overwrite")
     fm.write("dir_dest_overwrite/original_dest_file.txt", "original dest data")
 
-    fm.move("dir_src", "dir_dest_overwrite", overwrite=True)
+    fm.move_file("dir_src", "dir_dest_overwrite", overwrite=True)
     assert not fm.exists("dir_src")
     assert fm.exists("dir_dest_overwrite/src_file.txt")
     assert not fm.exists("dir_dest_overwrite/original_dest_file.txt") # Old content of dir_dest_overwrite is gone
@@ -441,7 +441,7 @@ def test_move_directory_tree(fm: FileManager, fs):
     # Test moving a file to a directory (should place file inside directory)
     fm.write("file_to_move_into_dir.txt", "move me in")
     fm.ensure_dir("target_dir_for_file")
-    fm.move("file_to_move_into_dir.txt", "target_dir_for_file")
+    fm.move_file("file_to_move_into_dir.txt", "target_dir_for_file")
     assert not fm.exists("file_to_move_into_dir.txt")
     assert fm.exists("target_dir_for_file/file_to_move_into_dir.txt")
     assert fm.read("target_dir_for_file/file_to_move_into_dir.txt") == "move me in"
@@ -450,7 +450,7 @@ def test_move_directory_tree(fm: FileManager, fs):
     fm.write("some_file_src", "data")
     fm.write("dest_parent_is_file", "i am a file")
     with pytest.raises(FileManagerError, match="parent of destination .* exists and is not a directory"):
-        fm.move("some_file_src", "dest_parent_is_file/new_file")
+        fm.move_file("some_file_src", "dest_parent_is_file/new_file")
 
 
 def test_copy_directory_tree(fm: FileManager, fs):

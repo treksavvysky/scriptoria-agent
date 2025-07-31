@@ -451,7 +451,7 @@ class FileManager:
         self.logger.error(msg)
         raise FileManagerError(msg)
 
-  def move(
+  def move_file(
       self, src: str | pathlib.Path, dest: str | pathlib.Path, *, overwrite: bool = False
   ) -> None:
     """

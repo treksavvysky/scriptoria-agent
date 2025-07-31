@@ -42,5 +42,18 @@ services:
     tty: true
     command: python3
 
+  scriptoria-api:
+    build: .
+    container_name: scriptoria-agent-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./scriptoria:/app/scriptoria
+      - scriptoria-workspace:/app/workspace
+    environment:
+      - PYTHONPATH=/app
+      - SCRIPTORIA_WORKSPACE=/app/workspace
+    command: uvicorn scriptoria.api:app --host 0.0.0.0 --port 8000
+
 volumes:
   scriptoria-workspace:
