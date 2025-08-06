@@ -58,7 +58,7 @@ class MoveFileRequest(BaseModel):
 
 
 # --- API Endpoints ---
-@app.post("/-file", status_code=200)
+@app.post("/move-file", status_code=200)
 async def move_file_endpoint(payload: MoveFileRequest):
     """
     Moves a file or directory from a source path to a destination path

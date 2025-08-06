@@ -55,6 +55,14 @@ from scriptoria_agent.file_manager import write_file
 write_file("notes/todo.md", "- [ ] Add agent function support")
 ```
 
+### API Endpoints
+
+The agent also exposes a minimal HTTP API for file operations:
+
+| Method | Endpoint    | Description                     |
+| ------ | ----------- | ------------------------------- |
+| POST   | `/move-file` | Move or rename a file or directory within the workspace |
+
 ## 🧩 Integrations
 
 * Works seamlessly with **FionnAI**, **Task Master**, and other IntelliSwarm agents.
