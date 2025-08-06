@@ -58,7 +58,7 @@ class MoveFileRequest(BaseModel):
 
 
 # --- API Endpoints ---
-@app.post("/move-file", status_code=200)
+@app.post("/-file", status_code=200)
 async def move_file_endpoint(payload: MoveFileRequest):
     """
     Moves a file or directory from a source path to a destination path
@@ -77,7 +77,7 @@ async def move_file_endpoint(payload: MoveFileRequest):
     except FileManagerError as e:
         # Log the specific file manager error
         logger.error(f"FileManagerError during move operation: {e}")
-        # Return a user-friendly error message
+        # Return a moveuser-friendly error message
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         # Catch any other unexpected errors
