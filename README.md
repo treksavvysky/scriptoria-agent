@@ -1,3 +1,6 @@
+> [!IMPORTANT]
+> **SUPERSEDED (2026-07-04).** This IntelliSwarm-era file-management agent is retired. The Scriptoria name and librarian role live on in the **cortex-os** repo ("The Library"), where Scriptoria is the record librarian (curation, retrieval, digests) over the System Memory Index. This repo is archived for lineage; its code is not the successor.
+
 # Scriptoria Agent
 
 **Scriptoria** is a dedicated AI agent within the *IntelliSwarm* ecosystem, responsible for file management, code organization, and structured project documentation. Scriptoria acts as a librarian, archivist, and scribe—ensuring clarity, consistency, and order within a collaborative multi-agent system.
