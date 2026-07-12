@@ -2,6 +2,7 @@
 .git
 .gitignore
 *.md
+!README.md
 .github/
 __pycache__/
 *.pyc

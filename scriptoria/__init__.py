@@ -1,1 +1,1 @@
-"""Scriptoria package providing file management utilities."""
+"""Scriptoria — the librarian of Cortex OS (The Library). Agent shell package."""

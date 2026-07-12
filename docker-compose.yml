@@ -1,59 +1,25 @@
-# Docker Compose for Scriptoria Agent Testing
-version: '3.8'
-
 services:
-  scriptoria-test:
+  scriptoria:
     build: .
-    container_name: scriptoria-agent-test
-    volumes:
-      # Mount source code for development
-      - ./scriptoria:/app/scriptoria
-      - ./tests:/app/tests
-      # Persistent workspace for testing
-      - scriptoria-workspace:/app/workspace
+    container_name: scriptoria
+    restart: unless-stopped
     environment:
-      - PYTHONPATH=/app
-      - SCRIPTORIA_WORKSPACE=/app/workspace
-    command: python -m pytest tests/ -v
-    
-  scriptoria-dev:
-    build: .
-    container_name: scriptoria-agent-dev
+      # cortex-library runs on the shared 'cortex' network (cortex-os Dockerfile)
+      LIBRARY_URL: http://cortex-library:8000
+      CORTEX_API_TOKEN: ${CORTEX_API_TOKEN:-}
+      SCRIPTORIA_API_TOKEN: ${SCRIPTORIA_API_TOKEN:?set in .env}
+      SCRIPTORIA_WORKSPACES_ROOT: /data/workspaces
     volumes:
-      - ./scriptoria:/app/scriptoria
-      - ./tests:/app/tests
-      - scriptoria-workspace:/app/workspace
-    environment:
-      - PYTHONPATH=/app
-      - SCRIPTORIA_WORKSPACE=/app/workspace
-    command: tail -f /dev/null  # Keep container running
-    
-  scriptoria-interactive:
-    build: .
-    container_name: scriptoria-agent-interactive
-    volumes:
-      - ./scriptoria:/app/scriptoria
-      - ./tests:/app/tests
-      - scriptoria-workspace:/app/workspace
-    environment:
-      - PYTHONPATH=/app
-      - SCRIPTORIA_WORKSPACE=/app/workspace
-    stdin_open: true
-    tty: true
-    command: python3
-
-  scriptoria-api:
-    build: .
-    container_name: scriptoria-agent-api
+      # bind-mounted so the operator sees workspace files directly on the host
+      - /home/architect/agents/workspaces:/data/workspaces
     ports:
-      - "8000:8000"
-    volumes:
-      - ./scriptoria:/app/scriptoria
-      - scriptoria-workspace:/app/workspace
-    environment:
-      - PYTHONPATH=/app
-      - SCRIPTORIA_WORKSPACE=/app/workspace
-    command: uvicorn scriptoria.api:app --host 0.0.0.0 --port 8000
+      - "127.0.0.1:8020:8020"
+    networks:
+      - codejourney-proxy
+      - cortex
 
-volumes:
-  scriptoria-workspace:
+networks:
+  codejourney-proxy:
+    external: true
+  cortex:
+    external: true

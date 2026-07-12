@@ -1,90 +1,59 @@
-> [!IMPORTANT]
-> **SUPERSEDED (2026-07-04).** This IntelliSwarm-era file-management agent is retired. The Scriptoria name and librarian role live on in the **cortex-os** repo ("The Library"), where Scriptoria is the record librarian (curation, retrieval, digests) over the System Memory Index. This repo is archived for lineage; its code is not the successor.
-
-# Scriptoria Agent
-
-**Scriptoria** is a dedicated AI agent within the *IntelliSwarm* ecosystem, responsible for file management, code organization, and structured project documentation. Scriptoria acts as a librarian, archivist, and scribe—ensuring clarity, consistency, and order within a collaborative multi-agent system.
-
-## 📌 Purpose
-
-Scriptoria was built to handle the following responsibilities:
-
-* Create, read, update, and delete (CRUD) files across agent-managed projects.
-* Maintain structured project directories.
-* Record, update, and version documentation (e.g., README.md, changelogs, agent manifests).
-* Facilitate conversations between agents by managing log files and summaries.
-
-## 🧠 Role in IntelliSwarm
-
-Scriptoria serves as:
-
-* **File Management Assistant**: Maintains all files relevant to active agents, development projects, and experiments.
-* **Communication Hub**: Stores and serves messages, logs, and persistent memory files for inter-agent dialogue.
-* **Documentation Manager**: Automatically generates or updates markdown files for codebases, APIs, and agent behavior.
-
-## 🚀 Features
-
-* Python-based implementation, easily extended with functions exposed to GPT agents.
-* Integration-ready for OpenAI API function calling.
-* Simple and secure file system operations.
-* Intelligent pattern-based updates (e.g., regex-driven modifications).
-
-## 🏗️ Directory Structure
-
-```bash
-scriptoria_agent/
-├── __init__.py
-├── file_manager.py        # Core logic for CRUD and directory operations
-├── docgen.py              # Markdown file generation and management
-├── message_store.py       # Persistent storage for inter-agent communication
-├── utils.py               # Utilities for path handling, encoding, formatting
-└── agent_manifest.json    # Metadata describing Scriptoria's functions and state
-```
-
-## 📦 Installation
-
-```bash
-git clone https://github.com/YOUR_USERNAME/scriptoria-agent.git
-cd scriptoria-agent
-pip install -e .
-```
-
-## 🧪 Usage
-
-Scriptoria can be invoked programmatically via function calls or CLI commands:
-
-```python
-from scriptoria_agent.file_manager import write_file
-write_file("notes/todo.md", "- [ ] Add agent function support")
-```
-
-### API Endpoints
-
-The agent also exposes a minimal HTTP API for file operations:
-
-| Method | Endpoint    | Description                     |
-| ------ | ----------- | ------------------------------- |
-| POST   | `/move-file` | Move or rename a file or directory within the workspace |
-
-## 🧩 Integrations
-
-* Works seamlessly with **FionnAI**, **Task Master**, and other IntelliSwarm agents.
-* Can serve function calls through OpenAI’s API ecosystem using function specs.
-* Planned integration with sandboxed execution environments for secure file ops.
-
-## 🛡️ Security
-
-* All file operations are sandbox-aware.
-* Future features include scoped access control per agent.
-
-## 📖 License
-
-MIT License
-
-## 👨‍💻 Author
-
-George Loudon — [treksavvysky](https://github.com/treksavvysky)
-
----
+# Scriptoria — the Librarian of Cortex OS
 
 > *"Every idea deserves to be written well. Scriptoria ensures it is."*
+
+Scriptoria is the librarian of **The Library** (the [cortex-os](https://github.com/treksavvysky/cortex-os) service): **The Stack** is durable storage, the **SMI** (System Memory Index) is the card catalog, and Scriptoria works the counter — finding, shelving, curating, and presenting what's already there.
+
+This repo is Scriptoria's **agent shell**. It holds no records itself and never imports cortex-os code: the Library is reached only over HTTP (`LIBRARY_URL`), so the Library's canonical home can move without touching this repo. The shell opens three doors to the same librarian:
+
+| Door | For | Entry point |
+| --- | --- | --- |
+| **MCP server** (stdio) | Claude Code, Codex, Antigravity CLI | `uv run scriptoria-mcp` |
+| **REST API** (bearer-gated) | ChatGPT custom GPT actions | `uv run uvicorn scriptoria.api:app` |
+| **Claude Code sub-agent** | "ask the librarian" in any session | `~/.claude/agents/scriptoria.md` |
+
+## The scriptorium
+
+Alongside the library tools, Scriptoria keeps a **scriptorium** — sandboxed drafting workspaces (successor to `ai-file-manager`) where agents draft and save files without copy-paste and the operator gets visibility into each agent's working files. Every operation is jailed inside its workspace by `scriptoria/file_manager.py` (rejects absolute paths and `..`, resolves symlinks, verifies containment).
+
+## Layout
+
+```
+scriptoria/
+├── config.py          # env: LIBRARY_URL, CORTEX_API_TOKEN, SCRIPTORIA_API_TOKEN, SCRIPTORIA_WORKSPACES_ROOT
+├── library_client.py  # the ONE module that talks to the Library daemon
+├── file_manager.py    # sandboxed file engine (salvaged from the IntelliSwarm era, tested)
+├── scriptorium.py     # named drafting workspaces over the file engine
+├── mcp_server.py      # FastMCP stdio server: tools + resources + prompts
+└── api.py             # FastAPI REST for GPT actions (OpenAPI at /openapi.json)
+```
+
+## Configuration
+
+| Variable | Meaning | Default |
+| --- | --- | --- |
+| `LIBRARY_URL` | Cortex OS daemon base URL | `http://localhost:8000` |
+| `CORTEX_API_TOKEN` | Bearer the Library expects on mutations | *(empty)* |
+| `SCRIPTORIA_API_TOKEN` | Bearer required by Scriptoria's own REST API | *(required for REST)* |
+| `SCRIPTORIA_WORKSPACES_ROOT` | Scriptorium root directory | `~/agents/workspaces` |
+
+## Develop
+
+```bash
+uv sync
+uv run pytest            # sandbox + API auth + salvaged engine suites
+uv run scriptoria-mcp    # stdio MCP server (used by CLI agent configs)
+uv run uvicorn scriptoria.api:app --port 8020
+```
+
+## Deploy
+
+`docker compose up` (via `orca`) serves the REST API; the public door is `https://scriptoria.codejourney.com` through the codejourney proxy. The compose file joins two external networks: `codejourney-proxy` (the public proxy) and `cortex` (where the `cortex-library` daemon container lives, its host port at `127.0.0.1:8021` for the stdio MCP servers).
+
+## Custom GPT setup
+
+In the GPT editor, add an Action and import the schema from
+`https://scriptoria.codejourney.com/openapi.json`. Authentication: **API Key**,
+auth type **Bearer**, key = the `SCRIPTORIA_API_TOKEN` value from this repo's
+`.env`. The GPT then has the full librarian surface: search/pull/curate/log
+records in The Library plus draft files in the scriptorium workspaces.

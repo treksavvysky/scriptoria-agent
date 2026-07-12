@@ -1,7 +1,0 @@
-pytest
-pyfakefs
-pytest-timeout
-fastapi
-uvicorn
-httpx
-pytest-cov
