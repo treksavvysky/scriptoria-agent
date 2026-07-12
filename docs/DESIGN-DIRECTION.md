@@ -1,6 +1,7 @@
 # Design Direction: The Working Librarian
 
-**Status:** adopted by operator, 2026-07-12
+**Status:** adopted by operator, 2026-07-12 — completed 2026-07-12
+**Successor:** `docs/DESIGN-DIRECTION-ACCESSIONS-DESK.md` ("The Accessions Desk", adopted 2026-07-12)
 **Scope:** the path from a deployed agent shell to a librarian whose enrichment is real, whose catalog is curated, and whose shelves are cross-referenced.
 **Predecessor:** cortex-os `docs/DESIGN-DIRECTION.md` (2026-07-04), whose Phase 4 — "Scriptoria becomes a librarian" — this document picks up and carries forward.
 
