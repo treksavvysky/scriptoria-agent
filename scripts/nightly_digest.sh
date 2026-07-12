@@ -35,6 +35,16 @@ else:
     print("Ritual: ask the scriptoria sub-agent to run a curation triage.")
 ' 2>/dev/null)" || curation_line=""
 
+# The scriptorium sweep (Accessions Desk phase 4): drift in cardable
+# workspaces — uncarded files, hash drift, cards whose draft is gone.
+sweep_lines="$(LIBRARY_URL="$LIBRARY_URL" python3 "$REPO_DIR/scripts/scriptorium_sweep.py" 2>/dev/null)" || sweep_lines=""
+
+if [ -n "$sweep_lines" ]; then
+  digest="$sweep_lines
+
+$digest"
+fi
+
 if [ -n "$curation_line" ]; then
   digest="$curation_line
 

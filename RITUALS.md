@@ -56,12 +56,18 @@ this ritual.
 | **Driver** | prompt distills the session's decisions, learnings, and open threads into self-contained `log_to_the_stack` captures, then reports the record IDs |
 | **Silence / adjust** | nothing to silence; edit the prompt text in `mcp_server.py` |
 
-## 4. Scriptorium drift sweep — **planned, not active**
+## 4. Scriptorium drift sweep
 
-Phase 4 of the adopted design direction
-[`docs/DESIGN-DIRECTION-ACCESSIONS-DESK.md`](docs/DESIGN-DIRECTION-ACCESSIONS-DESK.md)
-("The sweep") will extend the nightly digest with scriptorium drift signals:
-files in cardable workspaces with no card, carded drafts whose content hash no
-longer matches, and archiving the cards of drafts deleted before check-in.
-Exit criterion: drift visible daily without anyone asking. No code exists yet;
-when implemented it will ride ritual #1's schedule and channel.
+| | |
+| --- | --- |
+| **Schedule** | rides ritual #1 (`0 21 * * *`, daily 21:00) |
+| **Trigger** | called by `scripts/nightly_digest.sh`; runnable on demand: `python3 scripts/scriptorium_sweep.py` |
+| **Channel** | same ntfy `library` post — sweep lines lead the digest when there are signals, silent otherwise |
+| **Driver** | `scripts/scriptorium_sweep.py` (read-only, stdlib): compares cardable workspaces against `GET /catalog?source=scriptorium` |
+| **Signals** | uncarded drafts, drafts whose sha256 drifted since carding, cards whose draft file is gone |
+| **Opt-in** | a workspace is swept only if it contains a `.cardable` marker file (currently: `fable_5`, `milestones`); scratch workspaces stay invisible |
+| **Silence / adjust** | remove the `.cardable` marker, or card/check-in the flagged draft |
+
+Per the direction's rulings the sweep reports and never mutates: drift is
+flagged, not silently re-carded; a gone draft's card awaits the operator's
+decision (card archival needs a daemon route — not yet built).
