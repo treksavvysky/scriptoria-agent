@@ -295,11 +295,15 @@ def shelve_this_session() -> str:
 def curation_triage() -> str:
     """Walk the unclassified shelves with the operator and curate records."""
     return (
-        "Pull a shelf_digest of records with status 'captured'. For each record, "
-        "propose a type, status, and classification axes (domain, packet, "
-        "conversion_pressure, action_candidate), explaining your reasoning in one "
-        "line. Ask the operator to confirm or adjust in batches, then apply the "
-        "confirmed curations with curate_record."
+        "Search the catalog for records with status 'captured', oldest first. "
+        "Pull each record and read its clarification and observations (genuinely "
+        "brain-enriched since 2026-07-12; treat older '[brain:simulation]' shells "
+        "as unenriched). For each record, propose a type, status, and "
+        "classification axes (domain, packet, conversion_pressure, "
+        "action_candidate), explaining your reasoning in one line. Ask the "
+        "operator to confirm or adjust in batches, then apply the confirmed "
+        "curations with curate_record. Prefer null over forced classification -- "
+        "unclassified is a legitimate state."
     )
 
 

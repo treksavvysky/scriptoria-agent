@@ -22,6 +22,25 @@ digest="$(curl -sf --max-time 30 "$LIBRARY_URL/digest?limit=50")" || {
   exit 1
 }
 
+# The curation signal (design direction phase 4): records must not age at
+# 'captured'. Lead the digest with the count so drift is visible daily.
+curation_line="$(curl -sf --max-time 30 "$LIBRARY_URL/records?status=captured&limit=200" | python3 -c '
+import json, sys
+records = json.load(sys.stdin)
+if not records:
+    print("Shelves fully curated - nothing waiting at captured.")
+else:
+    oldest = min(r["timestamp"] for r in records)[:10]
+    print(f"{len(records)} record(s) need curation (oldest: {oldest}).")
+    print("Ritual: ask the scriptoria sub-agent to run a curation triage.")
+' 2>/dev/null)" || curation_line=""
+
+if [ -n "$curation_line" ]; then
+  digest="$curation_line
+
+$digest"
+fi
+
 # ntfy caps message bodies (~4 KiB); trim politely rather than get bounced.
 if [ "${#digest}" -gt 3800 ]; then
   digest="${digest:0:3800}
