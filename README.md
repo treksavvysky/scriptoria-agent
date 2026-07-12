@@ -56,4 +56,6 @@ In the GPT editor, add an Action and import the schema from
 `https://scriptoria.codejourney.com/openapi.json`. Authentication: **API Key**,
 auth type **Bearer**, key = the `SCRIPTORIA_API_TOKEN` value from this repo's
 `.env`. The GPT then has the full librarian surface: search/pull/curate/log
-records in The Library plus draft files in the scriptorium workspaces.
+records in The Library — including `searchByMeaning`, semantic search ranked
+by the Library's brain — plus draft files in the scriptorium workspaces.
+Re-import the schema after route changes; actions are read at import time.

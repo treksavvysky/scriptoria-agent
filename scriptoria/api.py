@@ -84,6 +84,15 @@ class Record(BaseModel):
     action_candidate: Optional[bool] = None
 
 
+class SemanticMatches(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    query: str
+    matches: List[Record] = Field(
+        default=[], description="Relevant records, best first; each carries 'relevance' (0-1) and 'why'."
+    )
+
+
 class Neighbor(BaseModel):
     """One edge of a record's link neighborhood."""
     model_config = ConfigDict(extra="allow")
@@ -189,6 +198,16 @@ def search_the_catalog(
         text=text, namespace=namespace, record_type=type,
         status=status, domain=domain, limit=limit,
     )
+
+
+@app.get("/library/search", operation_id="searchByMeaning", dependencies=[Depends(require_token)])
+def search_by_meaning(
+    query: str = Query(description="Natural-language query; matches records by meaning, not keywords."),
+    limit: int = 10,
+) -> SemanticMatches:
+    """Semantic search: the Library's brain ranks records against the query.
+    Slower than searchTheCatalog; use when exact phrasing is unknown."""
+    return _library().semantic_search(query, limit=limit)
 
 
 @app.get("/library/records/{record_id}", operation_id="pullRecord", dependencies=[Depends(require_token)])

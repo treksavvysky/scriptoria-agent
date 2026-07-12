@@ -70,6 +70,22 @@ def search_the_catalog(
 
 
 @mcp.tool()
+def search_by_meaning(query: str, limit: int = 10) -> str:
+    """Search the catalog by MEANING rather than keywords — the Library's
+    brain ranks records against the query, so a record can match with zero
+    shared words ("how do agents remember?" finds the memory-model record).
+    Slower than search_the_catalog; prefer it when phrasing is unknown."""
+    try:
+        result = _library().semantic_search(query, limit=limit)
+    except LibraryError as e:
+        return f"Library error: {e}"
+    matches = result.get("matches", [])
+    if not matches:
+        return "Nothing on the shelves is relevant to that query."
+    return _dumps(matches)
+
+
+@mcp.tool()
 def pull_record(record_id: str) -> str:
     """Pull a single record from The Stack by its record_id, including its
     immutable core (raw_capture, origin, timestamp) and mutable shell

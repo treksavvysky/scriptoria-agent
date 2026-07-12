@@ -3,7 +3,7 @@
 This is the ONLY module that talks to cortex-os. Endpoints mirror
 ACEDaemonHandler in cortex-os src/core_ace.py:
 
-    GET  /status /records /related /digest /catalog /checkout
+    GET  /status /records /search /related /digest /catalog /checkout
     POST /ingest /curate /checkin /catalog/sync   (bearer-gated)
 """
 
@@ -29,10 +29,14 @@ class LibraryClient:
             return {"Authorization": f"Bearer {self.token}"}
         return {}
 
-    def _get(self, path: str, params: Optional[Dict[str, Any]] = None) -> httpx.Response:
+    def _get(self, path: str, params: Optional[Dict[str, Any]] = None,
+             timeout: Optional[float] = None) -> httpx.Response:
         params = {k: v for k, v in (params or {}).items() if v is not None}
         try:
-            response = self._client.get(path, params=params, headers=self._headers())
+            response = self._client.get(
+                path, params=params, headers=self._headers(),
+                timeout=timeout if timeout is not None else httpx.USE_CLIENT_DEFAULT,
+            )
         except httpx.HTTPError as e:
             raise LibraryError(f"The Library is unreachable at {self.base_url}: {e}")
         return response
@@ -87,6 +91,15 @@ class LibraryClient:
             "action_candidate": None if action_candidate is None else str(action_candidate).lower(),
             "limit": limit,
         })
+        if response.status_code >= 400:
+            raise LibraryError(self._json(response).get("error", f"HTTP {response.status_code}"))
+        return self._json(response)
+
+    def semantic_search(self, text: str, limit: int = 10) -> Dict[str, Any]:
+        """Retrieval by meaning: the Library's brain ranks records against the
+        query. Slower than search_records (a live inference call runs behind
+        it), hence the generous per-request timeout."""
+        response = self._get("/search", {"text": text, "limit": limit}, timeout=120.0)
         if response.status_code >= 400:
             raise LibraryError(self._json(response).get("error", f"HTTP {response.status_code}"))
         return self._json(response)
