@@ -12,6 +12,7 @@ from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 
+from scriptoria import accessions
 from scriptoria.library_client import LibraryClient, LibraryError
 from scriptoria.scriptorium import Scriptorium, ScriptoriumError
 
@@ -203,6 +204,50 @@ def library_status() -> str:
         return _dumps(_library().status())
     except LibraryError as e:
         return f"Library error: {e}"
+
+
+# -- the accessions desk ---------------------------------------------------
+
+@mcp.tool()
+def card_draft(workspace: str, path: str) -> str:
+    """File (or refresh) a catalog card for a scriptorium draft so it becomes
+    visible to the Library's card catalog — cheap metadata only (title,
+    excerpt, sha256, size), no content custody, no enrichment. Re-carding
+    after edits refreshes the hash; an accessioned card stays held."""
+    try:
+        return _dumps(accessions.card_draft(workspace, path, _scriptorium(), _library()))
+    except (ScriptoriumError, LibraryError) as e:
+        return f"Accessions error: {e}"
+
+
+@mcp.tool()
+def check_in_draft(workspace: str, path: str, supersedes: Optional[str] = None) -> str:
+    """Accession a reviewed draft into The Stack (operator-gated: only call
+    this on the operator's instruction). Cards the draft, then checks its
+    full text in as an immutable record; the Library enriches it and
+    proposes links afterward. Pass supersedes=<record_id> to link the new
+    record over a pointer record or a prior fossil being revised."""
+    try:
+        return _dumps(accessions.check_in_draft(
+            workspace, path, _scriptorium(), _library(), supersedes=supersedes))
+    except (ScriptoriumError, LibraryError) as e:
+        return f"Accessions error: {e}"
+
+
+@mcp.tool()
+def check_out_to_workspace(record_id: str, workspace: str, path: Optional[str] = None) -> str:
+    """Place an editable working copy of a held record into a scriptorium
+    workspace (created if needed). Custody stays with The Stack. After
+    revising, check_in_draft with supersedes=<record_id> shelves the new
+    version and preserves history."""
+    try:
+        result = accessions.check_out_to_workspace(
+            record_id, workspace, _scriptorium(), _library(), path=path)
+    except (ScriptoriumError, LibraryError) as e:
+        return f"Accessions error: {e}"
+    if result is None:
+        return f"Record '{record_id}' is not held in The Stack."
+    return _dumps(result)
 
 
 # -- scriptorium tools ----------------------------------------------------

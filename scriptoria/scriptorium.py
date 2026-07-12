@@ -6,6 +6,7 @@ into each agent's working files. Every file operation is jailed inside its
 workspace by the salvaged FileManager engine.
 """
 
+import hashlib
 import re
 import pathlib
 from typing import Any, Dict, List, Optional
@@ -102,6 +103,31 @@ class Scriptorium:
             raise ScriptoriumError(str(e))
         size = (self._workspace_path(workspace) / path).stat().st_size
         return {"workspace": workspace, "path": path, "size": size, "appended": append}
+
+    def describe_draft(self, workspace: str, path: str, include_content: bool = False) -> Dict[str, Any]:
+        """The accessions-desk descriptor for a draft: everything the Library
+        needs to card it (id, title, excerpt, sha256, size) and — when a
+        check-in is crossing the counter — the full content. The Library
+        never reads this filesystem; this descriptor is what travels."""
+        content = self.read_file(workspace, path)
+        raw = content.encode("utf-8")
+        title = None
+        for line in content.splitlines():
+            if line.startswith("# "):
+                title = line[2:].strip()
+                break
+        descriptor = {
+            "id": f"{workspace}/{path}",
+            "workspace": workspace,
+            "path": path,
+            "title": title or path.rsplit("/", 1)[-1],
+            "excerpt": " ".join(content.split())[:280],
+            "sha256": hashlib.sha256(raw).hexdigest(),
+            "size": len(raw),
+        }
+        if include_content:
+            descriptor["content"] = content
+        return descriptor
 
     def move_file(self, workspace: str, source: str, destination: str) -> Dict[str, Any]:
         try:
