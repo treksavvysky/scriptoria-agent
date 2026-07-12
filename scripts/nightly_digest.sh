@@ -22,6 +22,24 @@ digest="$(curl -sf --max-time 30 "$LIBRARY_URL/digest?limit=50")" || {
   exit 1
 }
 
+# The catalog-sync ritual (cortex-os board item 6, first live run
+# 2026-07-12): refresh the mnemos cards nightly so the catalog reflects a
+# FLOWING source, not a one-off snapshot. Re-sync is idempotent (held cards
+# keep their accession; re-carding un-archives). Failure surfaces in the
+# digest rather than blocking it — the daemon may lack MNEMOS_* credentials.
+sync_line=""
+if [ -n "${CORTEX_API_TOKEN:-}" ]; then
+  sync_line="$(curl -sf --max-time 60 -X POST "$LIBRARY_URL/catalog/sync" \
+    -H "Authorization: Bearer $CORTEX_API_TOKEN" -H "Content-Type: application/json" \
+    -d '{}' | python3 -c '
+import json, sys
+report = json.load(sys.stdin)
+errors = len(report.get("errors", []))
+suffix = f", {errors} error(s)" if errors else ""
+print(f"Mnemos catalog sync: {report.get(\"cataloged\", 0)} card(s) refreshed{suffix}.")
+' 2>/dev/null)" || sync_line="Mnemos catalog sync FAILED — bridge unreachable or unconfigured (see cortex-library logs)."
+fi
+
 # The curation signal (design direction phase 4): records must not age at
 # 'captured'. Lead the digest with the count so drift is visible daily.
 curation_line="$(curl -sf --max-time 30 "$LIBRARY_URL/records?status=captured&limit=200" | python3 -c '
@@ -47,6 +65,12 @@ fi
 
 if [ -n "$curation_line" ]; then
   digest="$curation_line
+
+$digest"
+fi
+
+if [ -n "$sync_line" ]; then
+  digest="$sync_line
 
 $digest"
 fi
