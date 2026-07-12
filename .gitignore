@@ -98,3 +98,4 @@ prof/
 
 # uv (if you're using `uv`)
 .uv/
+digest-cron.log
