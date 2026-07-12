@@ -50,6 +50,8 @@ uv run uvicorn scriptoria.api:app --port 8020
 
 `docker compose up` (via `orca`) serves the REST API; the public door is `https://scriptoria.codejourney.com` through the codejourney proxy. The compose file joins two external networks: `codejourney-proxy` (the public proxy) and `cortex` (where the `cortex-library` daemon container lives, its host port at `127.0.0.1:8021` for the stdio MCP servers).
 
+Recurring jobs (nightly digest cron, ntfy topic, manual prompts) are catalogued in [RITUALS.md](RITUALS.md).
+
 ## Custom GPT setup
 
 In the GPT editor, add an Action and import the schema from

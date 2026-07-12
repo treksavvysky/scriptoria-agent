@@ -7,14 +7,16 @@ as actions; operation IDs are the librarian's tool names.
 Run locally: uv run uvicorn scriptoria.api:app --port 8020
 """
 
+import html
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field
 
-from scriptoria import config
+from scriptoria import accessions, config
 from scriptoria.library_client import LibraryClient, LibraryError
 from scriptoria.scriptorium import Scriptorium, ScriptoriumError
 
@@ -277,6 +279,91 @@ def check_out(record_id: str) -> CheckoutEnvelope:
     return envelope
 
 
+# -- inbox: the returns cart -------------------------------------------------
+# Operator-facing HTML view of records awaiting curation (status "captured").
+# Browsers can't send Authorization headers on a plain page load, so the
+# bearer token travels as ?token=. Excluded from the OpenAPI spec so it never
+# appears in the GPT actions import.
+
+_INBOX_STYLE = """
+  body { font-family: Georgia, 'Times New Roman', serif; background: #f7f4ee;
+         color: #2b2620; margin: 0; padding: 2rem 1rem; }
+  main { max-width: 46rem; margin: 0 auto; }
+  header { border-bottom: 3px double #b8a98c; padding-bottom: 1rem; margin-bottom: 1.5rem; }
+  h1 { font-size: 1.5rem; margin: 0 0 0.4rem; }
+  header p { margin: 0; color: #6b6155; font-size: 0.95rem; }
+  article { background: #fffdf8; border: 1px solid #ddd2bd; border-radius: 4px;
+            padding: 1rem 1.25rem; margin-bottom: 1rem; }
+  .meta { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: baseline;
+          font-size: 0.85rem; color: #6b6155; margin-bottom: 0.6rem;
+          font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; }
+  .meta .id { font-weight: bold; color: #2b2620; }
+  .capture { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0;
+             font-family: inherit; font-size: 1rem; line-height: 1.5; }
+  .empty { text-align: center; padding: 3rem 1rem; color: #6b6155; font-style: italic; }
+"""
+
+
+def _age_in_days(timestamp: Optional[str]) -> Optional[int]:
+    """Whole days since the record was captured; None if unparseable."""
+    if not timestamp:
+        return None
+    try:
+        captured = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if captured.tzinfo is None:
+        captured = captured.replace(tzinfo=timezone.utc)
+    return max(0, (datetime.now(timezone.utc) - captured).days)
+
+
+def _inbox_card(record: Dict[str, Any]) -> str:
+    age = _age_in_days(record.get("timestamp"))
+    age_label = "age unknown" if age is None else f"{age} day{'' if age == 1 else 's'} old"
+    origin = record.get("origin_context") or "unknown origin"
+    return (
+        "<article>"
+        '<div class="meta">'
+        f'<span class="id">{html.escape(str(record.get("record_id") or "unidentified"))}</span>'
+        f"<span>{html.escape(age_label)}</span>"
+        f"<span>{html.escape(str(origin))}</span>"
+        "</div>"
+        f'<pre class="capture">{html.escape(str(record.get("raw_capture") or ""))}</pre>'
+        "</article>"
+    )
+
+
+@app.get("/inbox", include_in_schema=False)
+def inbox(token: Optional[str] = Query(None)) -> HTMLResponse:
+    """Read-only inbox of captured records, oldest first."""
+    expected = config.scriptoria_api_token()
+    if not expected:
+        raise HTTPException(503, "SCRIPTORIA_API_TOKEN is not configured on the server.")
+    if token != expected:
+        raise HTTPException(401, "Provide '?token=<SCRIPTORIA_API_TOKEN>'.")
+
+    records = _library().search_records(status="captured", limit=500)
+    records.sort(key=lambda r: r.get("timestamp") or "")
+
+    if records:
+        count = len(records)
+        body = f"<p>{count} record{'' if count == 1 else 's'} on the returns cart.</p>"
+        body += "".join(_inbox_card(record) for record in records)
+    else:
+        body = '<p class="empty">Shelves fully curated — nothing awaits the librarian.</p>'
+
+    page = (
+        "<!doctype html><html lang='en'><head><meta charset='utf-8'>"
+        "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+        f"<title>The Library — Inbox</title><style>{_INBOX_STYLE}</style></head>"
+        "<body><main><header><h1>The Library — Inbox</h1>"
+        "<p>Records captured but not yet curated. This page is read-only: "
+        "curation happens via the scriptoria sub-agent or its MCP tools.</p>"
+        f"</header>{body}</main></body></html>"
+    )
+    return HTMLResponse(page)
+
+
 # -- scriptorium: the drafting room -----------------------------------------
 
 @app.get("/workspaces", operation_id="listWorkspaces", dependencies=[Depends(require_token)])
@@ -334,6 +421,113 @@ def move_file(workspace: str, body: MoveFileRequest) -> MoveReceipt:
 def delete_file(workspace: str, path: str) -> DeleteReceipt:
     """Delete a single file (never a directory) from a workspace."""
     return _scriptorium().delete_file(workspace, path)
+
+
+# -- the accessions desk ------------------------------------------------------
+# Where drafts become visible to the catalog (cards), cross the counter into
+# The Stack (check-in), and come back out for revision (check-out copy).
+
+class DraftDescriptor(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = Field(None, description="'<workspace>/<path>' — the card's external id.")
+    workspace: Optional[str] = None
+    path: Optional[str] = None
+    title: Optional[str] = None
+    excerpt: Optional[str] = None
+    sha256: Optional[str] = None
+    size: Optional[int] = None
+
+
+class AccessionEntry(BaseModel):
+    """One object's outcome in a card/check-in report."""
+    model_config = ConfigDict(extra="allow")
+
+    record_id: Optional[str] = None
+    external_id: Optional[str] = None
+    type: Optional[str] = None
+    status: Optional[str] = None
+    card_upgraded: Optional[bool] = None
+    reason: Optional[str] = Field(None, description="Why the object was skipped.")
+    object: Optional[str] = None
+    error: Optional[str] = None
+
+
+class CardReceipt(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    card_id: Optional[str] = None
+    descriptor: Optional[DraftDescriptor] = None
+    status: Optional[str] = None
+    source: Optional[str] = None
+    cataloged: Optional[int] = None
+    cards: List[str] = []
+    errors: List[AccessionEntry] = []
+
+
+class CheckinReport(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    status: Optional[str] = None
+    source: Optional[str] = None
+    held: Optional[int] = Field(None, description="How many drafts were accessioned.")
+    checked_in: List[AccessionEntry] = []
+    skipped: List[AccessionEntry] = []
+    errors: List[AccessionEntry] = []
+
+
+class CheckoutCopy(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    record_id: Optional[str] = None
+    workspace: Optional[str] = None
+    path: Optional[str] = None
+    size: Optional[int] = None
+    custody: Optional[str] = Field(None, description="Always 'the-stack' — the copy is a working copy.")
+    checked_out_at: Optional[str] = None
+
+
+class CardDraftRequest(BaseModel):
+    path: str = Field(description="Draft path relative to the workspace root.")
+
+
+@app.post("/workspaces/{workspace}/card", operation_id="cardDraft", dependencies=[Depends(require_token)])
+def card_draft(workspace: str, body: CardDraftRequest) -> CardReceipt:
+    """File (or refresh) a catalog card for a draft: the Library learns the
+    draft exists (title, excerpt, hash, size) without taking custody."""
+    return accessions.card_draft(workspace, body.path, _scriptorium(), _library())
+
+
+class CheckInDraftRequest(BaseModel):
+    path: str = Field(description="Draft path relative to the workspace root.")
+    supersedes: Optional[str] = Field(
+        None, description="record_id this accession supersedes (a pointer record or a prior fossil being revised).")
+
+
+@app.post("/workspaces/{workspace}/checkin", operation_id="checkInDraft", dependencies=[Depends(require_token)])
+def check_in_draft(workspace: str, body: CheckInDraftRequest) -> CheckinReport:
+    """Accession a reviewed draft into The Stack (operator-gated — only on the
+    operator's instruction). Cards it, checks the full text in as an immutable
+    record, and the Library enriches and links it afterward."""
+    return accessions.check_in_draft(
+        workspace, body.path, _scriptorium(), _library(), supersedes=body.supersedes)
+
+
+class CheckOutCopyRequest(BaseModel):
+    workspace: str = Field(description="Workspace to place the working copy in (created if needed).")
+    path: Optional[str] = Field(None, description="Target file path; defaults to '<record_id>.md'.")
+
+
+@app.post("/library/records/{record_id}/checkout-to-workspace", operation_id="checkOutToWorkspace",
+          dependencies=[Depends(require_token)])
+def check_out_to_workspace(record_id: str, body: CheckOutCopyRequest) -> CheckoutCopy:
+    """Place an editable working copy of a held record into a workspace.
+    Custody stays with The Stack; re-check-in with supersedes preserves history."""
+    result = accessions.check_out_to_workspace(
+        record_id, body.workspace, _scriptorium(), _library(), path=body.path)
+    if result is None:
+        raise HTTPException(404, f"Record '{record_id}' is not held in The Stack.")
+    return result
 
 
 # The GPT actions importer rejects bare-object schemas, and FastAPI's
