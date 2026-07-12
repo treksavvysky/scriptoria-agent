@@ -3,6 +3,9 @@ services:
     build: .
     container_name: scriptoria
     restart: unless-stopped
+    # match the host operator's uid/gid so workspace files written through the
+    # REST door stay readable by host-side tools (MCP server, sub-agent)
+    user: "1000:1000"
     environment:
       # cortex-library runs on the shared 'cortex' network (cortex-os Dockerfile)
       LIBRARY_URL: http://cortex-library:8000
