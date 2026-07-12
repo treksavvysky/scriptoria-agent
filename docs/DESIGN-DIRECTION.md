@@ -65,3 +65,8 @@ A library's value is its cross-references, not its shelves.
 ## Sequencing
 
 Phases 1–2 are an hour of operator + config work and should happen immediately. Phase 3 is the next real work session and multiplies the value of everything after it: triage (4) gets machine-suggested classifications instead of blank cards, and the graph (5) gets seeded automatically instead of by hand. 4 and 5 then run as ongoing practice, not projects.
+
+## Progress
+
+- **2026-07-12 — Phase 1 (agent side) done.** GitHub repo unarchived (it had been archived with the old codebase) and `main` pushed (`9357c8a..019c9b7`: re-founding `29d98fd`, nightly digest `1f9b4d1`, GPT-importable OpenAPI `6b2245d`, this direction `019c9b7`). Remaining Phase 1 items are the operator's: Codex `config.toml`, ntfy subscribe, fresh-session sub-agent test.
+- **2026-07-12 — Phase 2 done.** `CORTEX_API_TOKEN` set on the `cortex-library` container and distributed to this repo's `.env` (for the scriptoria container) and the Claude Code / Antigravity MCP registrations — the Codex snippet needs the same `env` addition. Config-only, no code commit. Verified: `/status` reports `auth: bearer`, unauthenticated `POST /ingest` returns 401, GET routes (digest ritual) stay open, and an authenticated ingest through the full public chain succeeded (`idea_9b3446fe`).
